@@ -25,6 +25,9 @@ public class playerController : MonoBehaviour
     public bool isHurt;//是否受伤
     public float Collibering = 3;//是否碰撞东西
     private float collNumber = 1.0f;//碰撞东西的减速时间
+    public bool squatJump = false;//是否蹲着跳
+    [SerializeField] 
+    private float sqCD = 0;//蹲跳起后持续时间
 
 
     void Start()
@@ -38,7 +41,7 @@ public class playerController : MonoBehaviour
     void FixedUpdate()
     {
         //移动
-        if (!isHurt)
+        if (!isHurt && !squatJump)
         {
             Movement();
         }
@@ -54,6 +57,7 @@ public class playerController : MonoBehaviour
 
     void Movement()
     {
+        //角色下蹲
         if ((Input.GetKeyDown(KeyCode.S) || Input.GetKey(KeyCode.Z)) && coll.IsTouchingLayers(ground))
         {
             if (squatAble)
@@ -75,10 +79,11 @@ public class playerController : MonoBehaviour
                 }
             }
         }
-        float horizontalmove = Input.GetAxis("Horizontal");
-        float facedirection = Input.GetAxisRaw("Horizontal");
+
 
         //角色移动
+        float horizontalmove = Input.GetAxis("Horizontal");
+        float facedirection = Input.GetAxisRaw("Horizontal");
         if (horizontalmove != 0)
         {
             if (horizontalmove > 1 || horizontalmove < -1)
@@ -92,27 +97,13 @@ public class playerController : MonoBehaviour
             {
                 anim.SetFloat("running", Mathf.Abs(horizontalmove));
             }
+            else
+            {
+                anim.SetFloat("running", Mathf.Abs(0));
+
+            }
         }
-        #region
-        //switch (facedirection)
-        //{
-        //    case -1:
-        //        {
-        //            Debug.Log("向左移动");
-        //        }
-        //        break;
-        //    case 0:
-        //        {
-        //            Debug.Log("不动");
-        //        }
-        //        break;
-        //    case 1:
-        //        {
-        //            Debug.Log("向右移动");
-        //        }
-        //        break;
-        //}
-        #endregion
+
         //角色转向
         if (facedirection != 0)
         {
@@ -131,13 +122,22 @@ public class playerController : MonoBehaviour
     void jump()
     {
 
-        rb.velocity = new Vector2(rb.velocity.x, jumpforce * Time.fixedDeltaTime);
+
         //跳跃时取消掉蹲
         if (anim.GetBool("squat"))
         {
             anim.SetBool("squat", false);
+            squatJump = true;
             coll2.enabled = true;
+            rb.velocity = new Vector2(rb.velocity.x, jumpforce * Time.fixedDeltaTime*0.6f);
         }
+        else
+        {
+
+            rb.velocity = new Vector2(rb.velocity.x, jumpforce * Time.fixedDeltaTime);
+        }
+
+
         //开启跳跃
         anim.SetBool("falling", false);
         anim.SetBool("jumping", true);
@@ -169,7 +169,30 @@ public class playerController : MonoBehaviour
             }
         }
 
+        if (squatJump)
+        {
+            speed = 800;
+            rb.velocity = new Vector2(transform.localScale.x * speed * Time.fixedDeltaTime, rb.velocity.y);
+        }
 
+
+    }
+
+    void squatCd()
+    {
+
+        if (squatJump)
+        {
+            sqCD += 0.01f;
+            if(sqCD > 3)
+            {
+                squatJump = false;
+            }
+        }
+        else
+        {
+            sqCD = 0;
+        }
     }
 
     //切换动画
@@ -188,6 +211,12 @@ public class playerController : MonoBehaviour
         {
             anim.SetBool("falling", false);
             anim.SetBool("idle", true);
+            if (squatJump)
+            {
+                squatJump = false;
+                anim.SetBool("squat", true);
+
+            }
 
         }
         if (isHurt)
@@ -202,13 +231,17 @@ public class playerController : MonoBehaviour
             }
         }
     }
-    //碰撞樱桃
+
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        //碰撞收集品
         if (collision.tag == "Collection")
         {
             Destroy(collision.gameObject);
         }
+
+        //踩到敌人
         if (collision.gameObject.tag == "Enemy")
         {
             if (anim.GetBool("falling"))
@@ -218,6 +251,8 @@ public class playerController : MonoBehaviour
             }
         }
     }
+
+    //碰到敌人
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.tag == "Enemy")
@@ -240,6 +275,8 @@ public class playerController : MonoBehaviour
             
         }
     }
+    
+    //蹲下时免疫被敌人碰瓷
     private void OnCollisionStay2D(Collision2D collision)
     {
         if (collision.gameObject.tag == "Enemy")
@@ -265,7 +302,9 @@ public class playerController : MonoBehaviour
             squatNum += 0.01f;
         }
     }
-    //樱桃
+
+
+    //加分
     void addscore1()
     {
         collectScore[0] += 1;
